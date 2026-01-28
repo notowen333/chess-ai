@@ -604,8 +604,8 @@ def main():
                 print("Draw by insufficient material.")
                 break
 
-            if move_count >= 200:
-                print("Draw by move limit (200 moves).")
+            if move_count >= 500:
+                print("Draw by move limit (500 moves).")
                 break
 
             # Get current player info
