@@ -480,9 +480,22 @@ class ChessAI:
     def __init__(self, depth=3):
         self.depth = depth
         self.nodes_searched = 0
+        # Transposition table: caches evaluated positions
+        self.transposition_table = {}
+        # Killer moves: moves that caused beta cutoffs at each depth
+        self.killer_moves = [[] for _ in range(20)]
+        # Position history: tracks positions seen this game to penalize repetition
+        self.position_history = {}
+
+    def get_board_hash(self, game):
+        """Create a hashable representation of the board state."""
+        board_tuple = tuple(tuple(row) for row in game.board)
+        return (board_tuple, game.white_to_move,
+                tuple(sorted(game.castling_rights.items())),
+                game.en_passant_target)
 
     def evaluate(self, game):
-        """Evaluate the board position."""
+        """Evaluate the board position with enhanced heuristics."""
         if game.is_checkmate():
             return -20000 if game.white_to_move else 20000
         if game.is_stalemate() or game.is_insufficient_material():
@@ -490,6 +503,7 @@ class ChessAI:
 
         score = 0
 
+        # Material and position evaluation
         for row in range(8):
             for col in range(8):
                 piece = game.board[row][col]
@@ -508,11 +522,31 @@ class ChessAI:
                     else:
                         score -= table[row][col]
 
+        # Penalize repetition: discourage returning to previously seen positions
+        board_hash = self.get_board_hash(game)
+        if board_hash in self.position_history:
+            repetition_count = self.position_history[board_hash]
+            # Penalize repeated positions (from the perspective of who would reach it)
+            penalty = repetition_count * 50
+            score -= penalty if game.white_to_move else -penalty
+
         return score
 
-    def minimax(self, game, depth, alpha, beta, maximizing):
-        """Minimax with alpha-beta pruning."""
+    def minimax(self, game, depth, alpha, beta, maximizing, ply=0):
+        """Minimax with alpha-beta pruning and enhancements."""
         self.nodes_searched += 1
+
+        # Check extension: search 1 ply deeper when in check
+        in_check = game.is_in_check()
+        if in_check and depth == 0:
+            depth = 1
+
+        # Transposition table lookup
+        board_hash = self.get_board_hash(game)
+        if board_hash in self.transposition_table:
+            cached_depth, cached_score, cached_move = self.transposition_table[board_hash]
+            if cached_depth >= depth:
+                return cached_score, cached_move
 
         if depth == 0 or game.is_checkmate() or game.is_stalemate():
             return self.evaluate(game), None
@@ -521,13 +555,28 @@ class ChessAI:
         if not moves:
             return self.evaluate(game), None
 
-        # Move ordering: prioritize captures
+        # Enhanced move ordering
         def move_score(move):
-            to_row, to_col = move[2], move[3]
+            score = 0
+            from_row, from_col, to_row, to_col = move
             captured = game.board[to_row][to_col]
+            moving_piece = game.board[from_row][from_col]
+
+            # MVV-LVA: Most Valuable Victim - Least Valuable Attacker
             if captured != '.':
-                return abs(PIECE_VALUES.get(captured, 0))
-            return 0
+                victim_value = abs(PIECE_VALUES.get(captured, 0))
+                attacker_value = abs(PIECE_VALUES.get(moving_piece, 0))
+                score += 10000 + victim_value * 10 - attacker_value
+
+            # Killer move bonus
+            if ply < len(self.killer_moves) and move in self.killer_moves[ply]:
+                score += 5000
+
+            # Center control bonus for non-captures
+            if captured == '.' and 2 <= to_row <= 5 and 2 <= to_col <= 5:
+                score += 100
+
+            return score
 
         moves.sort(key=move_score, reverse=True)
 
@@ -538,31 +587,52 @@ class ChessAI:
             for move in moves:
                 game_copy = copy.deepcopy(game)
                 game_copy.make_move(move)
-                eval_score, _ = self.minimax(game_copy, depth - 1, alpha, beta, False)
+                eval_score, _ = self.minimax(game_copy, depth - 1, alpha, beta, False, ply + 1)
                 if eval_score > max_eval:
                     max_eval = eval_score
                     best_move = move
                 alpha = max(alpha, eval_score)
                 if beta <= alpha:
+                    # Store killer move
+                    if ply < len(self.killer_moves):
+                        if move not in self.killer_moves[ply]:
+                            self.killer_moves[ply].insert(0, move)
+                            if len(self.killer_moves[ply]) > 2:
+                                self.killer_moves[ply].pop()
                     break
+
+            # Store in transposition table
+            self.transposition_table[board_hash] = (depth, max_eval, best_move)
             return max_eval, best_move
         else:
             min_eval = float('inf')
             for move in moves:
                 game_copy = copy.deepcopy(game)
                 game_copy.make_move(move)
-                eval_score, _ = self.minimax(game_copy, depth - 1, alpha, beta, True)
+                eval_score, _ = self.minimax(game_copy, depth - 1, alpha, beta, True, ply + 1)
                 if eval_score < min_eval:
                     min_eval = eval_score
                     best_move = move
                 beta = min(beta, eval_score)
                 if beta <= alpha:
+                    # Store killer move
+                    if ply < len(self.killer_moves):
+                        if move not in self.killer_moves[ply]:
+                            self.killer_moves[ply].insert(0, move)
+                            if len(self.killer_moves[ply]) > 2:
+                                self.killer_moves[ply].pop()
                     break
+
+            # Store in transposition table
+            self.transposition_table[board_hash] = (depth, min_eval, best_move)
             return min_eval, best_move
 
     def get_best_move(self, game):
         """Get the best move for the current position."""
         self.nodes_searched = 0
+        # Clear killer moves for new search
+        self.killer_moves = [[] for _ in range(20)]
+
         _, best_move = self.minimax(
             game,
             self.depth,
@@ -570,6 +640,14 @@ class ChessAI:
             float('inf'),
             game.white_to_move
         )
+
+        # Update position history after move is selected
+        if best_move:
+            game_copy = copy.deepcopy(game)
+            game_copy.make_move(best_move)
+            board_hash = self.get_board_hash(game_copy)
+            self.position_history[board_hash] = self.position_history.get(board_hash, 0) + 1
+
         return best_move, self.nodes_searched
 
 
