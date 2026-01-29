@@ -1,6 +1,81 @@
 # chess-ai
 ai plays against eachother
 
+Developed with Claude Code on Opus 4.5 and iterated with the same!
+
+# Running Parallel Simulations Example
+
+⏺ Now let me launch 50 games in parallel using background processes. Each will have different algorithm
+  configurations.
+
+⏺ Bash(mkdir -p chess_results && for i in {1..50}; do
+        # Vary configurations across games…)
+  ⎿  Launched 50 games in parallel
+
+⏺ Games launched. Let me monitor their progress.
+
+⏺ Bash(echo "Active chess processes: $(pgrep -f chess_game_worker | wc -l)" && ls chess_results/ 2>/dev/null | wc
+      -l && echo "files created")
+  ⎿  Active chess processes:       50
+     50
+     files created
+
+⏺ All 50 games are running. Let me wait for them to complete and then analyze results.
+
+⏺ Bash(while [ $(pgrep -f chess_game_worker | wc -l) -gt 0 ]; do timeout: 10m 0s
+        active=$(pgrep -f chess_game_worker | wc -l)…)
+  ⎿  Running in the background (↓ to manage)
+
+⏺ Let me check on the progress.
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ Let me check what's actually in the output files.
+
+⏺ Bash(head -c 500 chess_results/game_1.json && echo "---" && ls -la chess_results/ | head -10)
+  ⎿  ---
+     total 0
+     drwxr-xr-x@ 52 <>< >  staff  1664 Jan 29 10:41 .
+     … +8 lines (ctrl+o to expand)
+
+⏺ The files are empty because results are only written on completion. With 50 games running depth 3-4 minimax,
+  this is CPU-intensive. Let me check if we should reduce parallelism for better throughput.
+
+⏺ Bash(sysctl -n hw.ncpu)
+  ⎿  10
+
+⏺ 50 games on 10 cores means they're competing for CPU. Let me check progress on the monitoring task.
+
+⏺ Bash(tail -5 /private/tmp/claude/-Users-<>< >-code/tasks/beb4051.output && echo "---" && ls -la
+      chess_results/*.json | awk '$5 > 0 {print}' | head -10)
+  ⎿  10:48:16 - Active:       50, Completed:        0/50
+     10:48:26 - Active:       50, Completed:        0/50
+     10:48:36 - Active:       50, Completed:        0/50
+     … +3 lines (ctrl+o to expand)
+
+⏺ Let me check the actual processes to ensure they're progressing.
+
+⏺ Bash(ps aux | grep chess_game_worker | head -5)
+  ⎿ <>< >       27016  18.0  0.1 435277104  23936   ??  RN   10:41AM   1:22.61 /Library/Developer/Comman
+    dLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python c
+    hess_game_worker.py --game-id 47 --white-depth 4 --black-depth 2 --white-center 85 --black-center 95 --wh
+    … +17 lines (ctrl+o to expand)
+
+All 50 processes are actively running and using CPU. Let me continue monitoring until games start completing.
+
+⏺ Bash(while true; do                                                                                timeout: 10m
+        completed_count=$(ls -la chess_results/*.json 2>/dev/null | awk '$5 > 0 {count++} END        0s
+      {print count+0}')…)
+  ⎿  10:50:20 - Active: 51, Completed: 0/50
+     10:50:35 - Active: 51, Completed: 0/50
+     10:50:50 - Active: 51, Completed: 0/50
+     10:51:05 - Active: 51, Completed: 0/50
+     10:51:20 - Active: 51, Completed: 0/50
+     +4 more lines (2m 14s)
+     ctrl+b to run in background
+
+
+# Single Threaded Game Example
 
 [4:14 PM, 1/28/2026] White plays: ♖ a1b1
 (Searched 840 positions)
@@ -123,5 +198,3 @@ White plays: ♔ e1f2 captures ♝
      a   b   c   d   e   f   g   h
 Move 22: Black's turn
 Press Enter to see the move...
-
-Always a stalemate???
