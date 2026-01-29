@@ -75,6 +75,19 @@ All 50 processes are actively running and using CPU. Let me continue monitoring 
      ctrl+b to run in background
 
 
+ Read 1 file (ctrl+o to expand)
+
+⏺ The games are still running (51 includes the monitor). With depth 3-4 minimax, 100 moves each, and 50 games on
+  10 cores, this takes significant time. Let me check how long the games have been running.
+
+⏺ Bash(ps -o pid,etime,pcpu -p $(pgrep -f chess_game_worker | head -5 | tr '\n' ',')0 2>/dev/null | head -10)
+  ⎿    PID ELAPSED  %CPU
+     26970   11:32  18.0
+     26971   11:32  16.2
+     … +3 lines (ctrl+o to expand)
+
+⏺ Games running for ~12 minutes at 16-18% CPU each. Let me continue monitoring.
+
 # Single Threaded Game Example
 
 [4:14 PM, 1/28/2026] White plays: ♖ a1b1
