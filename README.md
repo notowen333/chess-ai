@@ -3,6 +3,64 @@ ai plays against eachother
 
 Developed with Claude Code on Opus 4.5 and iterated with the same!
 
+This is **100% Traditional AI (Symbolic AI)**, often called "GOFAI" (Good Old-Fashioned AI).
+
+It is **not Machine Learning**. There is no "learning" happening here—the bot doesn't get smarter the more it plays, and there are no neural networks or training data involved.
+
+However, does it have **sauce**? **Yes.**
+
+While it's not ML, it's not a "dumb" brute-force script either. Whoever wrote this implemented several "mid-level" chess engine optimizations that put it significantly above a basic beginner bot.
+
+### The "Sauce" (Algorithmic Optimizations)
+
+This script uses sophisticated search techniques to look ahead much more efficiently than a standard loop.
+
+1. **Alpha-Beta Pruning:**
+* *The Sauce:* Instead of looking at every single possible move (which takes forever), it stops searching a branch as soon as it realizes the opponent has a way to refute it.
+* *Code:* `if beta <= alpha: break` inside the `minimax` function.
+
+
+2. **Transposition Tables (The Memory):**
+* *The Sauce:* It remembers positions it has seen before. If it reaches the same board state via a different order of moves, it looks up the result in a hash map (`self.transposition_table`) instead of calculating it all over again.
+
+
+3. **Killer Moves Heuristic:**
+* *The Sauce:* It keeps track of "killer moves"—moves that were really good in other branches of the search tree—and tries them *first* in new positions. This makes the Alpha-Beta pruning happen much earlier, vastly speeding up the search.
+* *Code:* `self.killer_moves` list and the logic to insert high-value moves into it.
+
+
+4. **MVV-LVA (Most Valuable Victim - Least Valuable Attacker):**
+* *The Sauce:* When considering captures, it prioritizes the "tastiest" trades first (e.g., using a Pawn to take a Queen) before looking at bad trades (e.g., using a Queen to take a Pawn). This is a classic move-ordering optimization.
+
+### The "Traditional" Part (Hardcoded Heuristics)
+
+This is the dead giveaway that it's not ML. All the "intelligence" is hardcoded by a human in these lines:
+
+```python
+# Piece values for evaluation
+PIECE_VALUES = {
+    'P': 100, 'N': 320, 'B': 330, 'R': 500, 'Q': 900, 'K': 20000,
+    ...
+}
+
+# Position tables for piece-square evaluation
+PAWN_TABLE = [ ... ]
+
+```
+
+* **In Traditional AI:** You (the human) tell the computer, "Knights are worth 320 points, and Knights are good in the center."
+* **In Machine Learning:** You feed the computer 1,000,000 games, and *it figures out* that Knights are worth roughly 3.2 pawns and belong in the center.
+
+### Summary
+
+* **Is it ML?** No. It is a static evaluation function with a Minimax search.
+* **Is it basic?** No. It includes advanced search optimizations (Killer Moves, Transposition Tables) that make it respectable.
+* **How to add "Real" Sauce:** To turn this into modern ML, you would replace the `evaluate(self, game)` function with a Neural Network (like NNUE) that takes the board state and outputs a winning probability.
+
+### Next Step
+
+If you want to see how this performs, I can explain how to hook this up to a visual interface or how to modify the `evaluate` function to make it slightly more aggressive. Would you like to do that?
+
 # Running Parallel Simulations Example
 
 ⏺ Now let me launch 50 games in parallel using background processes. Each will have different algorithm
